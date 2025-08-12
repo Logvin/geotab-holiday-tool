@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Geotab Database Connector</title>
+	<script src="https://cdn.jsdelivr.net/npm/mg-api-js"></script>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 600px;
+			margin: 50px auto;
+			padding: 20px;
+			background-color: #f5f5f5;
+		}
+		
+		.container {
+			background: white;
+			padding: 30px;
+			border-radius: 8px;
+			box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+		}
+		
+		h1 {
+			color: #333;
+			text-align: center;
+			margin-bottom: 30px;
+		}
+		
+		.form-group {
+			margin-bottom: 20px;
+			transition: all 0.3s ease;
+		}
+		
+		.form-group.hidden {
+			display: none;
+		}
+		
+		label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: bold;
+			color: #555;
+		}
+		
+		input[type="text"], input[type="password"] {
+			width: 100%;
+			padding: 10px;
+			border: 2px solid #ddd;
+			border-radius: 4px;
+			font-size: 16px;
+			box-sizing: border-box;
+		}
+		
+		input:focus {
+			border-color: #4CAF50;
+			outline: none;
+		}
+		
+		.connect-btn {
+			background-color: #4CAF50;
+			color: white;
+			padding: 12px 30px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 16px;
+			width: 100%;
+			margin-top: 10px;
+		}
+		
+		.connect-btn:hover {
+			background-color: #45a049;
+		}
+		
+		.connect-btn:disabled {
+			background-color: #cccccc;
+			cursor: not-allowed;
+		}
+		
+		.status-box {
+			margin-top: 20px;
+			padding: 15px;
+			border-radius: 4px;
+			min-height: 50px;
+			border: 2px solid #ddd;
+			background-color: #f9f9f9;
+		}
+		
+		.status-success {
+			border-color: #4CAF50;
+			background-color: #d4edda;
+			color: #155724;
+		}
+		
+		.status-error {
+			border-color: #f44336;
+			background-color: #f8d7da;
+			color: #721c24;
+		}
+		
+		.status-info {
+			border-color: #2196F3;
+			background-color: #d1ecf1;
+			color: #0c5460;
+		}
+		
+		.loading {
+			display: none;
+			text-align: center;
+			margin-top: 10px;
+		}
+		
+		.spinner {
+			border: 2px solid #f3f3f3;
+			border-top: 2px solid #3498db;
+			border-radius: 50%;
+			width: 20px;
+			height: 20px;
+			animation: spin 1s linear infinite;
+			display: inline-block;
+			margin-right: 10px;
+		}
+		
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>Geotab Holiday Tool</h1>
+		
+		<form id="connectionForm">
+			<div class="form-group">
+				<label for="database">Database:</label>
+				<input type="text" id="database" name="database" placeholder="Enter database name" value="" required>
+			</div>
+			
+			<div class="form-group">
+				<label for="username">Username:</label>
+				<input type="text" id="username" name="username" placeholder="Enter username" value="" required>
+			</div>
+			
+			<div class="form-group">
+				<label for="password">Password:</label>
+				<input type="password" id="password" name="password" placeholder="Enter password" value="" required>
+			</div>
+			
+			<button type="submit" class="connect-btn" id="connectBtn">Connect</button>
+		</form>
+		
+		<div class="loading" id="loading">
+			<div class="spinner"></div>
+			Connecting to Geotab...
+		</div>
+		
+		<div class="status-box" id="statusBox">
+			<strong>Status:</strong> Ready to connect
+		</div>
+		
+		<!-- Holidays Section - Initially Hidden -->
+		<div id="holidaysSection" style="display: none; margin-top: 20px;">
+			<h3>Work Holidays</h3>
+			<button type="button" class="connect-btn" id="loadHolidaysBtn" style="background-color: #4CAF50;">Load Holidays</button>
+			
+			<div class="status-box" id="holidaysResults" style="margin-top: 10px;">
+				<strong>Holidays:</strong> Click "Load Holidays" to fetch data
+			</div>
+			
+			<!-- Holidays Table -->
+			<div id="holidaysTableContainer" style="display: none; margin-top: 15px;">
+				<div style="overflow-x: auto;">
+					<table id="holidaysTable" style="width: 100%; border-collapse: collapse; background: white; border: 1px solid #ddd;">
+						<thead>
+							<tr style="background: #f8f9fa;">
+								<th onclick="sortHolidaysByColumn('name')" style="border: 1px solid #ddd; padding: 10px; text-align: left; cursor: pointer; user-select: none; position: relative;">
+									Holiday Name <span id="nameSortIcon">↕️</span>
+								</th>
+								<th onclick="sortHolidaysByColumn('date')" style="border: 1px solid #ddd; padding: 10px; text-align: left; cursor: pointer; user-select: none; position: relative;">
+									Date <span id="dateSortIcon">↕️</span>
+								</th>
+								<th onclick="sortHolidaysByColumn('year')" style="border: 1px solid #ddd; padding: 10px; text-align: left; cursor: pointer; user-select: none; position: relative;">
+									Year <span id="yearSortIcon">↕️</span>
+								</th>
+								<th style="border: 1px solid #ddd; padding: 10px; text-align: center; width: 80px;">Action</th>
+							</tr>
+						</thead>
+						<tbody id="holidaysTableBody">
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+<!-- Add Holidays Section - Initially Hidden -->
+		<div id="addHolidaysSection" style="display: none; margin-top: 20px;">
+			<h3>Add Holidays</h3>
+			
+			<div style="display: flex; gap: 20px;">
+				<!-- Federal Holidays Card -->
+				<div style="flex: 1; background: #f9f9f9; padding: 15px; border-radius: 4px;">
+					<h4 style="margin-top: 0;">Select Federal Holidays:</h4>
+					<div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white;">
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="newYears" value="New Year's Day" style="margin-right: 8px;"> New Year's Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="mlkDay" value="Martin Luther King Jr. Day" style="margin-right: 8px;"> Martin Luther King Jr. Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="presidentsDay" value="Presidents' Day" style="margin-right: 8px;"> Presidents' Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="memorialDay" value="Memorial Day" style="margin-right: 8px;"> Memorial Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="juneteenth" value="Juneteenth" style="margin-right: 8px;"> Juneteenth
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="independenceDay" value="Independence Day" style="margin-right: 8px;"> Independence Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="laborDay" value="Labor Day" style="margin-right: 8px;"> Labor Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="columbusDay" value="Columbus Day" style="margin-right: 8px;"> Columbus Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="veteransDay" value="Veterans Day" style="margin-right: 8px;"> Veterans Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="thanksgiving" value="Thanksgiving Day" style="margin-right: 8px;"> Thanksgiving Day
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" id="christmas" value="Christmas Day" style="margin-right: 8px;"> Christmas Day
+						</label>
+					</div>
+					
+					<div style="margin-top: 15px; display: flex; gap: 15px;">
+						<button type="button" onclick="selectAllFederalHolidays()" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer;">Select All</button>
+						<button type="button" onclick="clearAllFederalHolidays()" style="padding: 5px 10px; background: #ff9800; color: white; border: none; border-radius: 3px; cursor: pointer;">Clear All</button>
+					</div>
+				</div>
+				
+				<!-- Other Holidays Card -->
+				<div style="flex: 1; background: #f9f9f9; padding: 15px; border-radius: 4px;">
+					<h4 style="margin-top: 0;">Select Other Holidays:</h4>
+					<div id="otherHolidaysList" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: white;">
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" class="other-holiday" value="Halloween" style="margin-right: 8px;"> Halloween
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" class="other-holiday" value="Black Friday" style="margin-right: 8px;"> Black Friday
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" class="other-holiday" value="Christmas Eve" style="margin-right: 8px;"> Christmas Eve
+						</label>
+						<label style="display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;">
+							<input type="checkbox" class="other-holiday" value="New Year's Eve" style="margin-right: 8px;"> New Year's Eve
+						</label>
+					</div>
+					
+					<div style="margin-top: 15px; display: flex; gap: 15px; flex-wrap: wrap;">
+						<button type="button" onclick="selectAllOtherHolidays()" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer;">Select All</button>
+						<button type="button" onclick="clearAllOtherHolidays()" style="padding: 5px 10px; background: #ff9800; color: white; border: none; border-radius: 3px; cursor: pointer;">Clear All</button>
+						<button type="button" onclick="showAddHolidayModal()" style="padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Add New</button>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Year inputs and button section stays the same -->
+			<div style="display: flex; gap: 15px; margin: 20px 0;">
+				<div>
+					<label for="startYear" style="display: block; margin-bottom: 5px; font-weight: bold;">Start Year:</label>
+					<input type="number" id="startYear" value="2025" min="2020" max="2050" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; width: 100px;">
+				</div>
+				<div>
+					<label for="endYear" style="display: block; margin-bottom: 5px; font-weight: bold;">End Year:</label>
+					<input type="number" id="endYear" value="2030" min="2020" max="2050" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; width: 100px;">
+				</div>
+			</div>
+			
+			<button type="button" class="connect-btn" id="addSelectedHolidaysBtn" style="background-color: #FF9800;">Add Selected Holidays</button>	
+
+			<div style="margin-top: 20px;">
+				<h4>Progress:</h4>
+				<div id="progressOutput" style="background: #f5f5f5; border: 1px solid #ddd; padding: 15px; min-height: 100px; font-family: monospace; font-size: 12px; white-space: pre-wrap; overflow-y: auto; max-height: 400px;">
+					Click "Add Selected Holidays" to start processing...
+				</div>
+				
+				<!-- Rate Limit Warning -->
+				<div id="rateLimitWarning" style="display: none; background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin-top: 10px; border-radius: 4px; text-align: center;">
+					<strong>⚠️ API Rate Limit Warning</strong><br>
+					<span id="rateLimitText">Approaching API rate limit. Waiting...</span>
+					<div style="margin-top: 5px;">
+						<div style="background: #ddd; border-radius: 10px; overflow: hidden; height: 8px;">
+							<div id="rateLimitProgress" style="background: #f39c12; height: 100%; width: 0%; transition: width 1s;"></div>
+						</div>
+						<small id="rateLimitCountdown">60 seconds remaining</small>
+					</div>
+				</div>
+				
+				<!-- Summary -->
+				<div id="progressSummary" style="display: none; background: #e9ecef; border: 1px solid #ced4da; padding: 15px; margin-top: 10px; border-radius: 4px;">
+					<h4 style="margin-top: 0;">Summary:</h4>
+					<div style="display: flex; gap: 20px;">
+						<span id="successCount" style="color: #28a745; font-weight: bold;">✅ Successful: 0</span>
+						<span id="skippedCount" style="color: #ffc107; font-weight: bold;">⚠️ Skipped: 0</span>
+						<span id="failedCount" style="color: #dc3545; font-weight: bold;">❌ Failed: 0</span>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- Add Holiday Modal -->
+		<div id="addHolidayModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
+			<div style="background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80%; overflow-y: auto;">
+				<h3 style="margin-top: 0;">Add Custom Holiday</h3>
+				
+				<div style="margin-bottom: 20px;">
+					<label for="holidayName" style="display: block; margin-bottom: 5px; font-weight: bold;">Holiday Name:</label>
+					<input type="text" id="holidayName" placeholder="Enter holiday name" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+				</div>
+				
+				<div style="margin-bottom: 20px;">
+					<label for="dateType" style="display: block; margin-bottom: 5px; font-weight: bold;">Date Type:</label>
+					<select id="dateType" onchange="toggleDateTypeOptions()" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+						<option value="">Select date type...</option>
+						<option value="fixed">Fixed Day</option>
+						<option value="variable">Variable Day</option>
+					</select>
+				</div>
+				
+				<!-- Fixed Day Options -->
+				<div id="fixedDayOptions" style="display: none; margin-bottom: 20px;">
+					<label for="fixedDate" style="display: block; margin-bottom: 5px; font-weight: bold;">Date:</label>
+					<input type="date" id="fixedDate" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+				</div>
+				
+				<!-- Variable Day Options -->
+				<div id="variableDayOptions" style="display: none; margin-bottom: 20px;">
+					<label style="display: block; margin-bottom: 5px; font-weight: bold;">Variable Date:</label>
+					<div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+						<select id="weekOrder" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px;">
+							<option value="">Select...</option>
+							<option value="1">First</option>
+							<option value="2">Second</option>
+							<option value="3">Third</option>
+							<option value="4">Fourth</option>
+							<option value="last">Last</option>
+						</select>
+						
+						<select id="weekday" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px;">
+							<option value="">Select day...</option>
+							<option value="0">Sunday</option>
+							<option value="1">Monday</option>
+							<option value="2">Tuesday</option>
+							<option value="3">Wednesday</option>
+							<option value="4">Thursday</option>
+							<option value="5">Friday</option>
+							<option value="6">Saturday</option>
+						</select>
+						
+						<span style="margin: 0 5px;">in</span>
+						
+						<select id="month" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px;">
+							<option value="">Select month...</option>
+							<option value="0">January</option>
+							<option value="1">February</option>
+							<option value="2">March</option>
+							<option value="3">April</option>
+							<option value="4">May</option>
+							<option value="5">June</option>
+							<option value="6">July</option>
+							<option value="7">August</option>
+							<option value="8">September</option>
+							<option value="9">October</option>
+							<option value="10">November</option>
+							<option value="11">December</option>
+						</select>
+					</div>
+				</div>
+				
+				<div style="display: flex; gap: 10px; justify-content: flex-end;">
+					<button type="button" onclick="cancelAddHoliday()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+					<button type="button" onclick="saveNewHoliday()" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Save</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// Global variable to store the API instance
+		let api = null;
+		let holidaysResults;
+		let isConnected = false;
+		let apiCallCount = 0;
+		let apiCallTimestamps = [];
+		let isProcessing = false;
+		let currentHolidays = []; // Store loaded holidays for sorting
+		let currentSortColumn = 'date';
+		let currentSortDirection = 'asc';
+		let customHolidays = []; // Store custom holidays
+		
+		// Progress tracking
+		let progressStats = {
+			successful: 0,
+			skipped: 0,
+			failed: 0
+		};
+		
+		// Get form elements
+		const form = document.getElementById('connectionForm');
+		const connectBtn = document.getElementById('connectBtn');
+		const statusBox = document.getElementById('statusBox');
+		const loading = document.getElementById('loading');
+		
+		// Get form groups for hiding/showing
+		const formGroups = document.querySelectorAll('.form-group');
+		
+		// Define holiday function
+		async function loadHolidays() {
+			if (!api) {
+				updateHolidaysResults('❌ Not connected. Please connect first.', 'error');
+				return;
+			}
+			
+			try {
+				updateHolidaysResults('🔄 Loading work holidays...', 'info');
+				
+				// Get work holidays
+				const result = await api.call('Get', {
+					typeName: 'WorkHoliday',
+					search: {}
+				});
+				
+				console.log('Holidays result:', result);
+				
+				if (result && Array.isArray(result) && result.length > 0) {
+					currentHolidays = result; // Store for sorting
+					updateHolidaysResults(`✅ Found ${result.length} work holidays`, 'success');
+					displayHolidaysTable(result);
+				} else {
+					updateHolidaysResults('⚠️ No work holidays found in the database', 'info');
+					hideHolidaysTable();
+				}
+				
+			} catch (error) {
+				console.error('Load holidays failed:', error);
+				updateHolidaysResults(`❌ Load holidays failed: ${error.message}`, 'error');
+				hideHolidaysTable();
+			}
+		}
+		
+		function displayHolidaysTable(holidays) {
+			const tableContainer = document.getElementById('holidaysTableContainer');
+			const tableBody = document.getElementById('holidaysTableBody');
+			
+			// Clear existing content
+			tableBody.innerHTML = '';
+			
+			holidays.forEach((holiday, index) => {
+				const row = document.createElement('tr');
+				row.style.cssText = index % 2 === 0 ? 'background-color: #f9f9f9;' : 'background-color: white;';
+				
+				const name = holiday.name || 'Unnamed Holiday';
+				const date = holiday.date ? new Date(holiday.date).toLocaleDateString() : 'No date';
+				const year = holiday.date ? new Date(holiday.date).getFullYear() : 'N/A';
+				
+				row.innerHTML = `
+					<td style="border: 1px solid #ddd; padding: 10px;">${name}</td>
+					<td style="border: 1px solid #ddd; padding: 10px;">${date}</td>
+					<td style="border: 1px solid #ddd; padding: 10px;">${year}</td>
+					<td style="border: 1px solid #ddd; padding: 10px; text-align: center;">
+						<button onclick="deleteHoliday('${holiday.id}', '${name.replace(/'/g, "\\'")}', '${date}')" 
+								style="background: #ff4757; color: white; border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s;"
+								title="Remove ${name}"
+								onmouseover="this.style.transform='scale(1.05)'; this.style.opacity='0.9';"
+								onmouseout="this.style.transform='scale(1)'; this.style.opacity='1';">
+							Remove
+						</button>
+					</td>
+				`;
+				
+				tableBody.appendChild(row);
+			});
+			
+			tableContainer.style.display = 'block';
+			updateSortIcons();
+		}
+		
+		function hideHolidaysTable() {
+			const tableContainer = document.getElementById('holidaysTableContainer');
+			tableContainer.style.display = 'none';
+		}
+		
+		function sortHolidaysByColumn(column) {
+			if (!currentHolidays || currentHolidays.length === 0) return;
+			
+			// Toggle sort direction if clicking the same column
+			if (currentSortColumn === column) {
+				currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+			} else {
+				currentSortColumn = column;
+				currentSortDirection = 'asc';
+			}
+			
+			let sortedHolidays = [...currentHolidays];
+			
+			sortedHolidays.sort((a, b) => {
+				let valueA, valueB;
+				
+				switch (column) {
+					case 'name':
+						valueA = (a.name || '').toLowerCase();
+						valueB = (b.name || '').toLowerCase();
+						break;
+					case 'date':
+						valueA = a.date ? new Date(a.date) : new Date(0);
+						valueB = b.date ? new Date(b.date) : new Date(0);
+						break;
+					case 'year':
+						valueA = a.date ? new Date(a.date).getFullYear() : 0;
+						valueB = b.date ? new Date(b.date).getFullYear() : 0;
+						break;
+					default:
+						return 0;
+				}
+				
+				if (valueA < valueB) return currentSortDirection === 'asc' ? -1 : 1;
+				if (valueA > valueB) return currentSortDirection === 'asc' ? 1 : -1;
+				return 0;
+			});
+			
+			displayHolidaysTable(sortedHolidays);
+		}
+		
+		function updateSortIcons() {
+			// Reset all icons
+			document.getElementById('nameSortIcon').textContent = '↕️';
+			document.getElementById('dateSortIcon').textContent = '↕️';
+			document.getElementById('yearSortIcon').textContent = '↕️';
+			
+			// Set active icon
+			const activeIcon = currentSortDirection === 'asc' ? '↑' : '↓';
+			switch (currentSortColumn) {
+				case 'name':
+					document.getElementById('nameSortIcon').textContent = activeIcon;
+					break;
+				case 'date':
+					document.getElementById('dateSortIcon').textContent = activeIcon;
+					break;
+				case 'year':
+					document.getElementById('yearSortIcon').textContent = activeIcon;
+					break;
+			}
+		}
+		
+		function sortHolidays(sortBy) {
+			// Legacy function - now replaced by sortHolidaysByColumn
+			sortHolidaysByColumn(sortBy);
+		}
+		
+		async function deleteHoliday(holidayId, name, date) {
+			if (!api) {
+				alert('Not connected to API');
+				return;
+			}
+			
+			if (!confirm(`Are you sure you want to delete "${name}" (${date})?`)) {
+				return;
+			}
+			
+			try {
+				updateHolidaysResults(`🗑️ Deleting "${name}" (${date})...`, 'info');
+				
+				await api.call('Remove', {
+					typeName: 'WorkHoliday',
+					entity: {
+						id: holidayId
+					}
+				});
+				
+				updateHolidaysResults(`✅ Successfully deleted "${name}" (${date})`, 'success');
+				
+				// Reload the holidays to refresh the table
+				setTimeout(() => {
+					loadHolidays();
+				}, 500);
+				
+			} catch (error) {
+				console.error('Delete holiday failed:', error);
+				updateHolidaysResults(`❌ Failed to delete "${name}": ${error.message}`, 'error');
+			}
+		}
+		
+		function updateHolidaysResults(message, type = 'info') {
+			if (!holidaysResults) return;
+			
+			holidaysResults.innerHTML = '<strong>Holidays:</strong> ' + message;
+			
+			// Remove previous status classes
+			holidaysResults.classList.remove('status-success', 'status-error', 'status-info');
+			
+			// Add appropriate status class
+			if (type === 'success') {
+				holidaysResults.classList.add('status-success');
+			} else if (type === 'error') {
+				holidaysResults.classList.add('status-error');
+			} else {
+				holidaysResults.classList.add('status-info');
+			}
+		}
+		
+		// Handle form submission
+		form.addEventListener('submit', async function(e) {
+			e.preventDefault();
+			
+			// Check if we're in disconnect mode
+			if (isConnected) {
+				handleDisconnect();
+				return;
+			}
+			
+			// Handle connection
+			await handleConnect();
+		});
+		
+		async function handleConnect() {
+			console.log('Connect button clicked - form submitted');
+			updateStatus('Form submitted, processing...', 'info');
+			
+			// Get form values
+			const database = document.getElementById('database').value.trim();
+			const username = document.getElementById('username').value.trim();
+			const password = document.getElementById('password').value;
+			
+			console.log('Form values:', { database, username, password: '***hidden***' });
+			
+			// Validate inputs
+			if (!database || !username || !password) {
+				updateStatus('Please fill in all fields', 'error');
+				return;
+			}
+			
+			// Show loading state
+			setLoadingState(true);
+			
+			// Check if GeotabApi is available
+			if (typeof GeotabApi === 'undefined') {
+				updateStatus('❌ GeotabApi library not loaded. Check the CDN connection.', 'error');
+				console.error('GeotabApi is not defined');
+				setLoadingState(false);
+				return;
+			}
+			
+			console.log('GeotabApi available:', typeof GeotabApi);
+			
+			try {
+				console.log('Creating GeotabApi instance...');
+				
+				// Create API instance - try different initialization approaches
+				updateStatus('Creating API instance...', 'info');
+				
+				// Method 1: Direct credentials object
+				try {
+					api = new GeotabApi({
+						credentials: {
+							database: database,
+							userName: username,
+							password: password
+						}
+					});
+					console.log('Method 1: API instance created with credentials object');
+				} catch (e1) {
+					console.log('Method 1 failed, trying method 2:', e1.message);
+					
+					// Method 2: Direct properties
+					try {
+						api = new GeotabApi({
+							database: database,
+							userName: username,
+							password: password
+						});
+						console.log('Method 2: API instance created with direct properties');
+					} catch (e2) {
+						console.log('Method 2 failed, trying method 3:', e2.message);
+						
+						// Method 3: Empty constructor then set credentials
+						api = new GeotabApi();
+						api.credentials = {
+							database: database,
+							userName: username,
+							password: password
+						};
+						console.log('Method 3: API instance created and credentials set manually');
+					}
+				}
+				
+				console.log('GeotabApi instance created:', api);
+				console.log('API credentials:', api.credentials);
+				updateStatus('API instance created, attempting to authenticate...', 'info');
+				
+				// Attempt to authenticate
+				console.log('Calling authenticate()...');
+				const authResult = await api.authenticate();
+				console.log('Authentication result:', authResult);
+				
+				updateStatus('✅ Successfully connected to Geotab database!', 'success');
+				
+				// Update connection state
+				isConnected = true;
+				
+				// Hide form inputs and change button
+				hideFormInputs();
+				connectBtn.textContent = 'Disconnect';
+				connectBtn.style.backgroundColor = '#f44336'; // Red color for disconnect
+				
+				// Show the holidays section and add event listeners
+				const holidaysSection = document.getElementById('holidaysSection');
+				holidaysSection.style.display = 'block';
+				
+				// Show the add holidays section
+				const addHolidaysSection = document.getElementById('addHolidaysSection');
+				addHolidaysSection.style.display = 'block';
+				
+				// Get holidays elements and add event listeners
+				holidaysResults = document.getElementById('holidaysResults');
+				const loadHolidaysBtn = document.getElementById('loadHolidaysBtn');
+				const addSelectedHolidaysBtn = document.getElementById('addSelectedHolidaysBtn');
+				
+				// Add event listeners if not already added
+				if (loadHolidaysBtn && !loadHolidaysBtn.hasAttribute('data-listener-added')) {
+					loadHolidaysBtn.addEventListener('click', loadHolidays);
+					loadHolidaysBtn.setAttribute('data-listener-added', 'true');
+				}
+				
+				if (addSelectedHolidaysBtn && !addSelectedHolidaysBtn.hasAttribute('data-listener-added')) {
+					addSelectedHolidaysBtn.addEventListener('click', processSelectedHolidays);
+					addSelectedHolidaysBtn.setAttribute('data-listener-added', 'true');
+				}
+				
+				// You can now use the api object for further operations
+				console.log('API authenticated successfully:', api);
+				
+			} catch (error) {
+				console.error('Connection failed:', error);
+				console.error('Error details:', {
+					message: error.message,
+					stack: error.stack,
+					name: error.name,
+					fullError: error
+				});
+				
+				let errorMessage = 'Connection failed: ';
+				
+				if (error.message) {
+					errorMessage += error.message;
+				} else if (typeof error === 'string') {
+					errorMessage += error;
+				} else {
+					errorMessage += 'Unknown error occurred - check console for details';
+				}
+				
+				updateStatus('❌ ' + errorMessage, 'error');
+				
+				// Clear the api instance on failure
+				api = null;
+				
+			} finally {
+				setLoadingState(false);
+			}
+		}
+		
+		function handleDisconnect() {
+			console.log('Disconnecting...');
+			
+			// Clear the API instance
+			api = null;
+			isConnected = false;
+			
+			// Show form inputs and change button back
+			showFormInputs();
+			connectBtn.textContent = 'Connect';
+			connectBtn.style.backgroundColor = '#4CAF50'; // Green color for connect
+			
+			// Hide holidays section
+			const holidaysSection = document.getElementById('holidaysSection');
+			holidaysSection.style.display = 'none';
+			
+			// Hide add holidays section
+			const addHolidaysSection = document.getElementById('addHolidaysSection');
+			addHolidaysSection.style.display = 'none';
+			
+			// Update status
+			updateStatus('Disconnected. Ready to connect again.', 'info');
+			
+			console.log('Disconnected successfully');
+		}
+		
+		function hideFormInputs() {
+			formGroups.forEach(group => {
+				group.classList.add('hidden');
+			});
+		}
+		
+		function showFormInputs() {
+			formGroups.forEach(group => {
+				group.classList.remove('hidden');
+			});
+		}
+		
+		// Federal holidays functions
+		function selectAllFederalHolidays() {
+			const checkboxes = document.querySelectorAll('#addHolidaysSection input[type="checkbox"]:not(.other-holiday)');
+			checkboxes.forEach(checkbox => checkbox.checked = true);
+		}
+		
+		function clearAllFederalHolidays() {
+			const checkboxes = document.querySelectorAll('#addHolidaysSection input[type="checkbox"]:not(.other-holiday)');
+			checkboxes.forEach(checkbox => checkbox.checked = false);
+		}
+		
+		// Other holidays functions
+		function selectAllOtherHolidays() {
+			const checkboxes = document.querySelectorAll('.other-holiday');
+			checkboxes.forEach(checkbox => checkbox.checked = true);
+		}
+		
+		function clearAllOtherHolidays() {
+			const checkboxes = document.querySelectorAll('.other-holiday');
+			checkboxes.forEach(checkbox => checkbox.checked = false);
+		}
+		// Modal functions
+		function showAddHolidayModal() {
+			document.getElementById('addHolidayModal').style.display = 'flex';
+		}
+		
+		function cancelAddHoliday() {
+			// Clear form
+			document.getElementById('holidayName').value = '';
+			document.getElementById('dateType').value = '';
+			document.getElementById('fixedDate').value = '';
+			document.getElementById('weekOrder').value = '';
+			document.getElementById('weekday').value = '';
+			document.getElementById('month').value = '';
+			
+			// Hide options
+			document.getElementById('fixedDayOptions').style.display = 'none';
+			document.getElementById('variableDayOptions').style.display = 'none';
+			
+			// Hide modal
+			document.getElementById('addHolidayModal').style.display = 'none';
+		}
+		
+		function toggleDateTypeOptions() {
+			const dateType = document.getElementById('dateType').value;
+			const fixedOptions = document.getElementById('fixedDayOptions');
+			const variableOptions = document.getElementById('variableDayOptions');
+			
+			if (dateType === 'fixed') {
+				fixedOptions.style.display = 'block';
+				variableOptions.style.display = 'none';
+			} else if (dateType === 'variable') {
+				fixedOptions.style.display = 'none';
+				variableOptions.style.display = 'block';
+			} else {
+				fixedOptions.style.display = 'none';
+				variableOptions.style.display = 'none';
+			}
+		}
+		
+		function saveNewHoliday() {
+			const name = document.getElementById('holidayName').value.trim();
+			const dateType = document.getElementById('dateType').value;
+			
+			if (!name) {
+				alert('Please enter a holiday name');
+				return;
+			}
+			
+			if (!dateType) {
+				alert('Please select a date type');
+				return;
+			}
+			
+			let holidayData = { name, dateType };
+			
+			if (dateType === 'fixed') {
+				const fixedDate = document.getElementById('fixedDate').value;
+				if (!fixedDate) {
+					alert('Please select a fixed date');
+					return;
+				}
+				holidayData.fixedDate = fixedDate;
+			} else if (dateType === 'variable') {
+				const weekOrder = document.getElementById('weekOrder').value;
+				const weekday = document.getElementById('weekday').value;
+				const month = document.getElementById('month').value;
+				
+				if (!weekOrder || !weekday || !month) {
+					alert('Please fill in all variable date fields');
+					return;
+				}
+				
+				holidayData.weekOrder = weekOrder;
+				holidayData.weekday = parseInt(weekday);
+				holidayData.month = parseInt(month);
+			}
+			
+			// Add to custom holidays list
+			customHolidays.push(holidayData);
+			
+			// Add to the UI
+			addCustomHolidayToList(holidayData);
+			
+			// Close modal and clear form
+			cancelAddHoliday();
+		}
+		
+		function addCustomHolidayToList(holidayData) {
+			const list = document.getElementById('otherHolidaysList');
+			const label = document.createElement('label');
+			label.style.cssText = 'display: block; margin-bottom: 8px; font-weight: normal; cursor: pointer;';
+			
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.className = 'other-holiday custom-holiday';
+			checkbox.value = holidayData.name;
+			checkbox.style.marginRight = '8px';
+			checkbox.setAttribute('data-holiday', JSON.stringify(holidayData));
+			
+			label.appendChild(checkbox);
+			label.appendChild(document.createTextNode(holidayData.name));
+			
+			list.appendChild(label);
+		}
+		// Rate limiting functions
+		async function checkRateLimit() {
+			const now = Date.now();
+			// Remove timestamps older than 1 minute
+			apiCallTimestamps = apiCallTimestamps.filter(timestamp => now - timestamp < 60000);
+			
+			// If we're approaching the limit (90+ calls in the last minute), wait
+			if (apiCallTimestamps.length >= 90) {
+				await waitForRateLimit();
+			}
+		}
+		
+		async function waitForRateLimit() {
+			const warningDiv = document.getElementById('rateLimitWarning');
+			const progressBar = document.getElementById('rateLimitProgress');
+			const countdownText = document.getElementById('rateLimitCountdown');
+			
+			warningDiv.style.display = 'block';
+			
+			const waitTime = 60; // Wait 60 seconds
+			
+			for (let i = waitTime; i > 0; i--) {
+				const progress = ((waitTime - i) / waitTime) * 100;
+				progressBar.style.width = progress + '%';
+				countdownText.textContent = `${i} seconds remaining`;
+				
+				await new Promise(resolve => setTimeout(resolve, 1000));
+			}
+			
+			// Clear old timestamps and hide warning
+			apiCallTimestamps = [];
+			warningDiv.style.display = 'none';
+		}
+		
+		function trackApiCall() {
+			apiCallTimestamps.push(Date.now());
+			apiCallCount++;
+		}
+		
+		// Main processing function
+		async function processSelectedHolidays() {
+			if (isProcessing) {
+				return;
+			}
+			
+			if (!api) {
+				appendProgress('❌ Not connected. Please connect first.', 'error');
+				return;
+			}
+			
+			const startYear = parseInt(document.getElementById('startYear').value);
+			const endYear = parseInt(document.getElementById('endYear').value);
+			
+			if (startYear > endYear) {
+				appendProgress('❌ Error: Start year must be less than or equal to end year.', 'error');
+				return;
+			}
+			
+			const selectedHolidays = [];
+			
+			// Get federal holidays
+			const federalCheckboxes = document.querySelectorAll('#addHolidaysSection input[type="checkbox"]:not(.other-holiday):checked');
+			federalCheckboxes.forEach(checkbox => {
+				selectedHolidays.push({
+					id: checkbox.id,
+					name: checkbox.value,
+					type: 'federal'
+				});
+			});
+			
+			// Get other holidays
+			const otherCheckboxes = document.querySelectorAll('.other-holiday:checked');
+			otherCheckboxes.forEach(checkbox => {
+				const name = checkbox.value;
+				
+				// Check if it's a custom holiday
+				if (checkbox.classList.contains('custom-holiday')) {
+					const holidayData = JSON.parse(checkbox.getAttribute('data-holiday'));
+					selectedHolidays.push({
+						name: name,
+						type: 'custom',
+						data: holidayData
+					});
+				} else {
+					// Built-in other holidays
+					selectedHolidays.push({
+						name: name,
+						type: 'other'
+					});
+				}
+			});
+			
+			if (selectedHolidays.length === 0) {
+				appendProgress('❌ Error: Please select at least one holiday.', 'error');
+				return;
+			}
+			
+			// Reset progress
+			isProcessing = true;
+			progressStats = { successful: 0, skipped: 0, failed: 0 };
+			clearProgress();
+			hideSummary();
+			
+			const addBtn = document.getElementById('addSelectedHolidaysBtn');
+			addBtn.disabled = true;
+			addBtn.textContent = 'Processing...';
+			
+			appendProgress('🚀 Starting holiday processing...', 'info');
+			appendProgress(`📅 Processing ${selectedHolidays.length} holidays for years ${startYear}-${endYear}`, 'info');
+			appendProgress('', 'info'); // Empty line
+			
+			try {
+				for (let year = startYear; year <= endYear; year++) {
+					appendProgress(`--- Year ${year} ---`, 'info');
+					
+					for (const holiday of selectedHolidays) {
+						let date = null;
+						
+						if (holiday.type === 'federal') {
+							date = calculateHolidayDate(holiday.id, year);
+						} else if (holiday.type === 'other') {
+							date = calculateOtherHolidayDate(holiday.name, year);
+						} else if (holiday.type === 'custom') {
+							date = calculateCustomHolidayDate(holiday.data, year);
+						}
+						
+						if (date) {
+							await processHoliday(holiday.name, date, year);
+						}
+					}
+					
+					appendProgress('', 'info'); // Empty line between years
+				}
+				
+				appendProgress('✅ Processing complete!', 'success');
+				
+			} catch (error) {
+				appendProgress(`❌ Processing failed: ${error.message}`, 'error');
+				console.error('Holiday processing failed:', error);
+			} finally {
+				isProcessing = false;
+				addBtn.disabled = false;
+				addBtn.textContent = 'Add Selected Holidays';
+				showSummary();
+			}
+		}
+		
+		async function processHoliday(name, date, year) {
+			const dateStr = date.toLocaleDateString();
+			
+			try {
+				// Step 1: Check if holiday already exists
+				await checkRateLimit();
+				appendProgress(`🔍 Checking if "${name}" (${dateStr}) already exists...`, 'info');
+				
+				trackApiCall();
+				const existingHolidays = await api.call('Get', {
+					typeName: 'WorkHoliday',
+					search: {}
+				});
+				
+				// More precise duplicate checking
+				const duplicateFound = existingHolidays && existingHolidays.some(holiday => {
+					if (!holiday.name || !holiday.date) return false;
+					
+					// Check exact name match and same date (with timezone tolerance)
+					const existingDate = new Date(holiday.date);
+					const targetDate = new Date(date);
+					
+					console.log(`Duplicate check comparing:`, {
+						existingName: holiday.name,
+						targetName: name,
+						existingDate: existingDate,
+						targetDate: targetDate,
+						existingDateStr: existingDate.toDateString(),
+						targetDateStr: targetDate.toDateString()
+					});
+					
+					const nameMatch = holiday.name.trim().toLowerCase() === name.trim().toLowerCase();
+					
+					// More flexible date matching to handle timezone issues
+					// Check if dates are within 24 hours of each other and same month/year
+					const timeDiff = Math.abs(existingDate.getTime() - targetDate.getTime());
+					const oneDayMs = 24 * 60 * 60 * 1000;
+					const sameMonth = existingDate.getMonth() === targetDate.getMonth();
+					const sameYear = existingDate.getFullYear() === targetDate.getFullYear();
+					
+					const dateMatch = timeDiff <= oneDayMs && sameMonth && sameYear;
+					
+					console.log(`Duplicate check results:`, { 
+						nameMatch, 
+						dateMatch,
+						timeDiffHours: timeDiff / (1000 * 60 * 60),
+						sameMonth,
+						sameYear,
+						overall: nameMatch && dateMatch 
+					});
+					
+					return nameMatch && dateMatch;
+				});
+				
+				if (duplicateFound) {
+					appendProgress(`⚠️ "${name}" (${dateStr}) already exists - Skipped`, 'warning');
+					progressStats.skipped++;
+					return;
+				}
+				
+				// Step 2: Add the holiday
+				await checkRateLimit();
+				appendProgress(`➕ Adding "${name}" (${dateStr})...`, 'info');
+				
+				trackApiCall();
+				const addResult = await api.call('Add', {
+					typeName: 'WorkHoliday',
+					entity: {
+						date: date.toISOString(),
+						holidayGroup: { groupId: "1" }, // Fixed: Use groupId not id
+						name: name
+					}
+				});
+				
+				// Step 3: Verify the addition
+				await checkRateLimit();
+				appendProgress(`✅ "${name}" (${dateStr}) added successfully! Verifying...`, 'success');
+				
+				trackApiCall();
+				const verifyResult = await api.call('Get', {
+					typeName: 'WorkHoliday',
+					search: {}
+				});
+				
+				console.log(`Verification for ${name} ${dateStr}:`, {
+					targetDate: date,
+					targetName: name,
+					allHolidays: verifyResult
+				});
+				
+				// Check if our newly added holiday is in the results
+				const verifyFound = verifyResult && verifyResult.some(holiday => {
+					if (!holiday.name || !holiday.date) return false;
+					
+					const existingDate = new Date(holiday.date);
+					const targetDate = new Date(date);
+					
+					console.log(`Comparing:`, {
+						existingName: holiday.name,
+						targetName: name,
+						existingDate: existingDate,
+						targetDate: targetDate,
+						existingDateStr: existingDate.toDateString(),
+						targetDateStr: targetDate.toDateString()
+					});
+					
+					const nameMatch = holiday.name.trim().toLowerCase() === name.trim().toLowerCase();
+					
+					// More flexible date matching to handle timezone issues
+					// Check if dates are within 24 hours of each other and same month/year
+					const timeDiff = Math.abs(existingDate.getTime() - targetDate.getTime());
+					const oneDayMs = 24 * 60 * 60 * 1000;
+					const sameMonth = existingDate.getMonth() === targetDate.getMonth();
+					const sameYear = existingDate.getFullYear() === targetDate.getFullYear();
+					
+					const dateMatch = timeDiff <= oneDayMs && sameMonth && sameYear;
+					
+					console.log(`Match results:`, { 
+						nameMatch, 
+						dateMatch,
+						timeDiffHours: timeDiff / (1000 * 60 * 60),
+						sameMonth,
+						sameYear,
+						overall: nameMatch && dateMatch 
+					});
+					
+					return nameMatch && dateMatch;
+				});
+				
+				console.log(`Final verification result: ${verifyFound}`);
+				
+				if (verifyFound) {
+					appendProgress(`✅ "${name}" (${dateStr}) verified successfully!`, 'success');
+					progressStats.successful++;
+				} else {
+					appendProgress(`❌ "${name}" (${dateStr}) verification failed - not found after adding`, 'error');
+					appendProgress(`🔍 Debug: Check console for verification details`, 'info');
+					progressStats.failed++;
+				}
+				
+			} catch (error) {
+				appendProgress(`❌ "${name}" (${dateStr}) failed: ${error.message}`, 'error');
+				progressStats.failed++;
+				console.error(`Holiday processing error for ${name}:`, error);
+			}
+		}
+		
+		function appendProgress(message, type = 'info') {
+			const output = document.getElementById('progressOutput');
+			const timestamp = new Date().toLocaleTimeString();
+			
+			let colorStyle = '';
+			switch (type) {
+				case 'success':
+					colorStyle = 'color: #28a745;';
+					break;
+				case 'error':
+					colorStyle = 'color: #dc3545;';
+					break;
+				case 'warning':
+					colorStyle = 'color: #ffc107;';
+					break;
+				case 'info':
+				default:
+					colorStyle = 'color: #333;';
+					break;
+			}
+			
+			const line = document.createElement('div');
+			line.style.cssText = colorStyle;
+			
+			if (message.trim() === '') {
+				line.innerHTML = '&nbsp;'; // Empty line
+			} else {
+				line.textContent = `[${timestamp}] ${message}`;
+			}
+			
+			output.appendChild(line);
+			output.scrollTop = output.scrollHeight;
+		}
+		
+		function clearProgress() {
+			const output = document.getElementById('progressOutput');
+			output.innerHTML = '';
+		}
+		
+		function showSummary() {
+			const summaryDiv = document.getElementById('progressSummary');
+			document.getElementById('successCount').textContent = `✅ Successful: ${progressStats.successful}`;
+			document.getElementById('skippedCount').textContent = `⚠️ Skipped: ${progressStats.skipped}`;
+			document.getElementById('failedCount').textContent = `❌ Failed: ${progressStats.failed}`;
+			summaryDiv.style.display = 'block';
+		}
+		
+		function hideSummary() {
+			const summaryDiv = document.getElementById('progressSummary');
+			summaryDiv.style.display = 'none';
+		}
+		
+		function generateHolidayAPICalls() {
+			// Keep the old function for reference but rename it
+			// This is now replaced by processSelectedHolidays()
+		}
+		
+		function calculateHolidayDate(holidayId, year) {
+			switch(holidayId) {
+				case 'newYears':
+					return new Date(year, 0, 1); // January 1
+					
+				case 'mlkDay':
+					return getNthWeekdayOfMonth(year, 0, 1, 3); // 3rd Monday in January
+					
+				case 'presidentsDay':
+					return getNthWeekdayOfMonth(year, 1, 1, 3); // 3rd Monday in February
+					
+				case 'memorialDay':
+					return getLastWeekdayOfMonth(year, 4, 1); // Last Monday in May
+					
+				case 'juneteenth':
+					return new Date(year, 5, 19); // June 19
+					
+				case 'independenceDay':
+					return new Date(year, 6, 4); // July 4
+					
+				case 'laborDay':
+					return getNthWeekdayOfMonth(year, 8, 1, 1); // 1st Monday in September
+					
+				case 'columbusDay':
+					return getNthWeekdayOfMonth(year, 9, 1, 2); // 2nd Monday in October
+					
+				case 'veteransDay':
+					return new Date(year, 10, 11); // November 11
+					
+				case 'thanksgiving':
+					return getNthWeekdayOfMonth(year, 10, 4, 4); // 4th Thursday in November
+					
+				case 'christmas':
+					return new Date(year, 11, 25); // December 25
+					
+				default:
+					return null;
+			}
+		}
+		
+		function getNthWeekdayOfMonth(year, month, weekday, n) {
+			const firstDay = new Date(year, month, 1);
+			const firstWeekday = firstDay.getDay();
+			let daysToAdd = (weekday - firstWeekday + 7) % 7;
+			daysToAdd += (n - 1) * 7;
+			return new Date(year, month, 1 + daysToAdd);
+		}
+		
+		function getLastWeekdayOfMonth(year, month, weekday) {
+			const lastDay = new Date(year, month + 1, 0);
+			const lastWeekday = lastDay.getDay();
+			const daysToSubtract = (lastWeekday - weekday + 7) % 7;
+			return new Date(year, month + 1, -daysToSubtract);
+		}
+		function calculateOtherHolidayDate(holidayName, year) {
+			switch(holidayName) {
+				case 'Halloween':
+					return new Date(year, 9, 31); // October 31
+					
+				case 'Black Friday':
+					// Day after Thanksgiving (4th Thursday + 1 day)
+					const thanksgiving = getNthWeekdayOfMonth(year, 10, 4, 4);
+					return new Date(thanksgiving.getTime() + 24 * 60 * 60 * 1000);
+					
+				case 'Christmas Eve':
+					return new Date(year, 11, 24); // December 24
+					
+				case "New Year's Eve":
+					return new Date(year, 11, 31); // December 31
+					
+				default:
+					return null;
+			}
+		}
+		
+		function calculateCustomHolidayDate(holidayData, year) {
+			if (holidayData.dateType === 'fixed') {
+				// Parse the fixed date and apply to the given year
+				const fixedDate = new Date(holidayData.fixedDate);
+				return new Date(year, fixedDate.getMonth(), fixedDate.getDate());
+			} else if (holidayData.dateType === 'variable') {
+				const { weekOrder, weekday, month } = holidayData;
+				
+				if (weekOrder === 'last') {
+					return getLastWeekdayOfMonth(year, month, weekday);
+				} else {
+					return getNthWeekdayOfMonth(year, month, weekday, parseInt(weekOrder));
+				}
+			}
+			
+			return null;
+		}
+		function setLoadingState(isLoading) {
+			if (isLoading) {
+				connectBtn.disabled = true;
+				connectBtn.textContent = 'Connecting...';
+				loading.style.display = 'block';
+			} else {
+				connectBtn.disabled = false;
+				// Only reset to "Connect" if we're not connected
+				if (!isConnected) {
+					connectBtn.textContent = 'Connect';
+				}
+				loading.style.display = 'none';
+			}
+		}
+		
+		function updateStatus(message, type = 'info') {
+			statusBox.innerHTML = '<strong>Status:</strong> ' + message;
+			
+			// Remove previous status classes
+			statusBox.classList.remove('status-success', 'status-error', 'status-info');
+			
+			// Add appropriate status class
+			if (type === 'success') {
+				statusBox.classList.add('status-success');
+			} else if (type === 'error') {
+				statusBox.classList.add('status-error');
+			} else {
+				statusBox.classList.add('status-info');
+			}
+		}
+		
+		// Optional: Add some helper functions for after successful connection
+		function getApiInstance() {
+			if (!api) {
+				throw new Error('Not connected to Geotab. Please connect first.');
+			}
+			return api;
+		}
+		
+		// Example function to test the connection with a simple API call
+		async function testConnection() {
+			try {
+				const apiInstance = getApiInstance();
+				const result = await apiInstance.call('Get', {
+					typeName: 'User',
+					search: {
+						name: apiInstance.credentials.userName
+					}
+				});
+				console.log('Test API call successful:', result);
+				return result;
+			} catch (error) {
+				console.error('Test API call failed:', error);
+				throw error;
+			}
+		}
+		
+		// Make testConnection available globally for testing
+		window.testConnection = testConnection;
+		window.getApiInstance = getApiInstance;
+	</script>
+</body>
+</html>
