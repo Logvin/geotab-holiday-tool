@@ -11,6 +11,12 @@ This is an **unofficial, community-created tool** that uses Geotab's public API.
 - **Breaking changes** - Geotab may update their API which could break this tool
 - **Test first** - Always test in a non-production environment before using in production
 
+## 🔑 What is the problem?
+
+The Geotab Holiday input lacks the ability to bulk import holidays. Holidays can be added individually one at a time, with an input text box that has no validation for the holiday name. Additionally, if you want to add floating holidays (like Thanksgiving which is the last Thursday of November), you have to know the exact date of each holiday. Each holiday has to be added manually each year.
+<img width="947" height="788" alt="image" src="https://github.com/user-attachments/assets/8b49521b-8499-4950-889a-49c8351da16b" />
+
+
 ## 🎯 What This Tool Does
 
 The Geotab Holiday Tool provides a simple web interface to:
